@@ -3,8 +3,8 @@ from helpers import key_pressed, clear_screen
 from collections import defaultdict
 import random
 
-MAP_HEIGTH = 15
-MAP_WIDTH = 15
+MAP_HEIGTH = 25
+MAP_WIDTH = 25
 FIRST_ELEMENT = 0
 # -------------------------------------------------- HELPERS
 
@@ -44,14 +44,14 @@ class Point():
 
 
 class MapElement():
-    def __init__(self, point, map_l):
-        self.map = map_l
+    def __init__(self, point, map_obj):
+        self.map = map_obj
         self.position = point
 
 
 class Player(MapElement):
-    def __init__(self, point, map_l):
-        super().__init__(point, map_l)
+    def __init__(self, point, map_obj):
+        super().__init__(point, map_obj)
         self.moves = defaultdict()
         self.moves = {
             'w': Point(0, 1),
@@ -62,9 +62,13 @@ class Player(MapElement):
 
     def change_position(self, key):
         new_position = self.position + self.moves[key]
-        if self.map_l.change_player_position(self.position, new_position):
+        if self.map.change_player_position(self.position, new_position):
             self.position = new_position
-        
+
+    
+    def show_arounds(self):
+        self.map.player_vision(self.position,3)
+
         
     def __str__(self):
         return "X"
@@ -85,7 +89,7 @@ class Wall(MapElement):
 
     
     def __str__(self):
-        return '1'
+        return 'O'
         # return u'\u2588'
 # -------------------------------------------------- MAP
 
@@ -95,17 +99,17 @@ class Map():
         self.map_width = map_width
         self.map_heigth = map_heigth
         self.players_positions = defaultdict()
+        self.walls_positions = defaultdict()
+        self.map_borders = defaultdict()
         
-    
     def change_player_position(self, previous_pos, new_position):
         # check if new position is availble
         player = self.players_positions[previous_pos]
-        if self.in_map_range(new_position):
+        if self.in_map_range(new_position) and new_position not in self.walls_positions:
             self.players_positions[new_position] = player
             self.players_positions.pop(previous_pos)
             return True
         return False
-
 
     def place_player(self, player):
         if self.in_map_range(player.position):
@@ -119,15 +123,38 @@ class Map():
             return True
         return False
 
-
-    def display_map(self):
-        for row in range(self.map_heigth-1, -1, -1):
-            for col in range(self.map_width):
-                if Point(col, row) in self.players_positions:
-                    print(self.players_positions[Point(col, row)], end=' ')
+    def player_vision(self, player_position, vision_length):
+        visible_walls = defaultdict()
+        for row in range(player_position.y + vision_length, player_position.y-vision_length, -1):
+            for col in range(player_position.x-vision_length, player_position.x + vision_length):
+                wall_position = Point(col, row)
+                if wall_position == player_position:
+                    print('X', end='')
+                elif wall_position in self.walls_positions:
+                    visible_walls[wall_position] = self.walls_positions[wall_position]
+                    print('O', end='')
                 else:
-                    print("O", end=' ')
+                    print(' ', end='')
+                print(end=' ')
             print()
+                
+
+
+
+    def populate_borders(self):
+        minus_one = -1
+        for width in range(-1, self.map_width + 1):
+            bottom_border_wall = Wall(Point(width, minus_one), self)
+            upper_border_wall = Wall(Point(width, self.map_heigth), self)
+            self.walls_positions[bottom_border_wall.position] = bottom_border_wall
+            self.walls_positions[upper_border_wall.position] = upper_border_wall
+        for height in range(self.map_heigth):
+            left_border_wall = Wall(Point(minus_one, height), self)
+            right_border_wall = Wall(Point(self.map_width, height), self)
+            self.walls_positions[left_border_wall.position] = left_border_wall
+            self.walls_positions[right_border_wall.position] = right_border_wall
+
+    
 
 
 class MazeMap(Map):
@@ -143,10 +170,10 @@ class MazeMap(Map):
             'right': Point(1, 0),
             'down': Point(0, -1),
             'left': Point(-1, 0)}
+        
 
 
     def populate_walls(self):
-        self.walls_positions = defaultdict()
         for row in range(self.map_heigth):
             for col in range(self.map_width):
                 wall = Wall(row, col)
@@ -156,6 +183,18 @@ class MazeMap(Map):
     def display_map(self):
         for row in range(self.map_heigth-1, -1, -1):
             for col in range(self.map_width):
+                checked_point = Point(col, row)
+                if checked_point in self.players_positions:
+                    print(self.players_positions[checked_point], end=' ')
+                elif checked_point in self.walls_positions:
+                    print(self.walls_positions[checked_point], end=' ')
+                else:
+                    print(" ", end=' ')
+            print()
+
+    def display_map_with_its_borders(self):
+        for row in range(self.map_heigth, -2, -1):
+            for col in range(-1, self.map_width+1):
                 checked_point = Point(col, row)
                 if checked_point in self.players_positions:
                     print(self.players_positions[checked_point], end=' ')
@@ -187,7 +226,6 @@ class MazeMap(Map):
         dead_end_road_position = []
         points_queue = [self.start_position]
         while generating_maze:
-            print(checked_point)
             # find available points around this_position (1. in the map area, 2. potential wall must have 3 wall around it)
             available_points = []
             for direction in self.points_round:
@@ -212,10 +250,7 @@ class MazeMap(Map):
                 else:
                     # if no elements-> finish
                     generating_maze = False
-            clear_screen()
-            self.display_map()
         self.connect_to_exit(self.exit_positon)
-        self.display_map()
 
     def connect_to_exit(self, finish_point):
         print('FIXIN EXIT')
@@ -234,12 +269,6 @@ class MazeMap(Map):
                 self.walls_positions.pop(available_points[random.randint(0, len(available_points)-1)])
 
         
-
-                        
-
-
-                        
-
 if __name__ == '__main__':
     '''
     # map setup and configuration
@@ -273,11 +302,64 @@ if __name__ == '__main__':
         print(key)
     '''
     
+    #VERY NICE WORKING MAP MOVEMENT
+    '''
     # maze map
     map2 = MazeMap(MAP_WIDTH, MAP_HEIGTH, Point(0,0), Point(14,14))
     map2.display_map()
     map2.generate_maze()
-    # map2.display_map()
-    
+    map2.display_map()
 
+    p1 = Player(Point(0,0), map2)
+    map2.place_player(p1)
 
+    clear_screen()
+    loop_running = True
+    while loop_running:
+        clear_screen()
+        map2.display_map()
+        print()
+        for key in map2.players_positions:
+            print("key: ", key)
+        print()
+        print(p1.position)
+        print()
+        print("Press any key to display a key, and 0 to quit")
+        key = key_pressed()
+        if key == '0':
+            loop_running = False
+        elif key in 'wdsa':
+            p1.change_position(key)
+        print(key)
+    '''
+
+    map2 = MazeMap(MAP_WIDTH, MAP_HEIGTH, Point(0,0), Point(MAP_WIDTH-1, MAP_HEIGTH-1))
+    map2.display_map()
+    map2.generate_maze()
+    map2.display_map()
+    map2.populate_borders()
+    map2.display_map_with_its_borders()
+
+    p1 = Player(Point(0,0), map2)
+    map2.place_player(p1)
+
+    clear_screen()
+    loop_running = True
+    while loop_running:
+        clear_screen()
+        p1.show_arounds()
+        #map2.display_map_with_its_borders()
+        print()
+        for key in map2.players_positions:
+            print("key: ", key)
+        print()
+        print(p1.position)
+        print()
+        print("Press any key to display a key, and 0 to quit")
+        key = key_pressed()
+        if key == '0':
+            loop_running = False
+        elif key in 'wdsa':
+            p1.change_position(key)
+        print(key)
+        
