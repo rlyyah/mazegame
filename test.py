@@ -14,30 +14,24 @@ class Point():
         self.position_x = pos_x
         self.position_y = pos_y
 
-
     @property
     def x(self):
         return self.position_x
-
 
     @property
     def y(self):
         return self.position_y
 
-
     def __add__(self, other):
         return Point(self.x + other.x,
                      self.y + other.y)
 
-
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
-
 
     def __hash__(self):
         return hash(self.x) ^ hash(self.y)
     
-
     def __str__(self):
         return f'({self.x}, {self.y})'
 # -------------------------------------------------- MAP ELEMENTS
@@ -60,16 +54,10 @@ class Player(MapElement):
             's': Point(0, -1),
             'a': Point(-1, 0)}
 
-
     def change_position(self, key):
         new_position = self.position + self.moves[key]
         if self.map.change_player_position(self.position, new_position):
             self.position = new_position
-
-    
-    def show_arounds(self):
-        self.map.player_vision(self.position,self.player_vision_length)
-
         
     def __str__(self):
         return "X"
@@ -79,7 +67,6 @@ class Floor(MapElement):
     def __init__(self, point, map_l):
         super().__init__(point, map_l)
 
-
     def __str__(self):
         return "O"
 
@@ -87,8 +74,7 @@ class Floor(MapElement):
 class Wall(MapElement):
     def __init__(self, point, map_l):
         super().__init__(point, map_l)
-
-    
+ 
     def __str__(self):
         return 'O'
         # return u'\u2588'
@@ -120,28 +106,10 @@ class Map():
             return True
         return False
 
-
     def in_map_range(self, point):
         if point.y in range(self.map_heigth) and point.x in range(self.map_width):
             return True
         return False
-
-    def player_vision(self, player_position, vision_length):
-        visible_walls = defaultdict()
-        for row in range(player_position.y + vision_length, player_position.y-vision_length, -1):
-            for col in range(player_position.x-vision_length, player_position.x + vision_length):
-                wall_position = Point(col, row)
-                if wall_position == player_position:
-                    print('X', end='')
-                elif wall_position == self.exit_positon:
-                    print('E', end='')
-                elif wall_position in self.walls_positions:
-                    visible_walls[wall_position] = self.walls_positions[wall_position]
-                    print('O', end='')
-                else:
-                    print(' ', end='')
-                print(end=' ')
-            print()
                 
     def populate_borders(self):
         minus_one = -1
@@ -169,39 +137,11 @@ class MazeMap(Map):
             'down': Point(0, -1),
             'left': Point(-1, 0)}
         
-
     def populate_walls(self):
         for row in range(self.map_heigth):
             for col in range(self.map_width):
                 wall = Wall(row, col)
                 self.walls_positions[Point(col, row)] = wall
-
-
-    def display_map(self):
-        for row in range(self.map_heigth-1, -1, -1):
-            for col in range(self.map_width):
-                checked_point = Point(col, row)
-                if checked_point in self.players_positions:
-                    print(self.players_positions[checked_point], end=' ')
-                elif checked_point in self.walls_positions:
-                    print(self.walls_positions[checked_point], end=' ')
-                else:
-                    print(" ", end=' ')
-            print()
-
-    def display_map_with_its_borders(self):
-        for row in range(self.map_heigth, -2, -1):
-            for col in range(-1, self.map_width+1):
-                checked_point = Point(col, row)
-                if checked_point in self.players_positions:
-                    print(self.players_positions[checked_point], end=' ')
-                elif checked_point == self.exit_positon:
-                    print('E', end=' ')
-                elif checked_point in self.walls_positions:
-                    print(self.walls_positions[checked_point], end=' ')
-                else:
-                    print(" ", end=' ')
-            print()
 
     def has_walls_around(self, point, walls_count=3):
         count_walls = 0
@@ -214,7 +154,6 @@ class MazeMap(Map):
         if count_walls >= walls_count:
             return True
         return False        
-
 
     def generate_maze(self):
         # start from starting_pos
@@ -277,6 +216,7 @@ class SolveMaze():
     def __init__(self, maze, player):
         self.maze = maze
         self.player = player
+        self.displayer = Displayer(maze)
 
     def start_game(self):
         player_reach_exit = False
@@ -284,11 +224,13 @@ class SolveMaze():
         while not player_reach_exit:
             clear_screen()
             if self.player.position == self.maze.start_position:
-                self.maze.display_map_with_its_borders()
+                self.displayer.prepare_map_string()
+                self.displayer.display_string()
             elif self.player.position == self.maze.exit_positon:
                 break
             else:
-                self.player.show_arounds()
+                self.displayer.prepare_player_vision(self.player.position, self.player.player_vision_length)
+                self.displayer.display_player()
             key = key_pressed()
             if key == '0':
                 # should be changed
@@ -301,71 +243,67 @@ class SolveMaze():
     def finish_game(self):
         clear_screen()
         print('WP RAT! U DID GOOD JOB :3')
+
+
+class Displayer():
+    def __init__(self, maze):
+        self.maze = maze
+        self.displayer_dict = {
+            'player': 'X ',
+            'exit' : 'E ',
+            'wall': 'O ',
+            'empty': '  ',
+            'new-line': '\n'}
+        
+    def prepare_map_string(self):
+        self.maze_string = ''
+        for row in range(self.maze.map_heigth, -2, -1):
+            for col in range(-1, self.maze.map_width+1):
+                checked_point = Point(col, row)
+                if checked_point in self.maze.players_positions:
+                    self.maze_string += self.displayer_dict['player']
+                    # print(self.maze.players_positions[checked_point], end=' ')
+                elif checked_point == self.maze.exit_positon:
+                    self.maze_string += self.displayer_dict['exit']
+                    # print('E', end=' ')
+                elif checked_point in self.maze.walls_positions:
+                    self.maze_string += self.displayer_dict['wall']
+                    # print(self.maze.walls_positions[checked_point], end=' ')
+                else:
+                    self.maze_string += self.displayer_dict['empty']
+                    #print(" ", end=' ')
+            self.maze_string += self.displayer_dict['new-line']
+
+    def prepare_player_vision(self, middle, radius):
+        visible_walls = defaultdict()
+        self.player_vision = ''
+        for row in range(middle.y + radius, middle.y-radius, -1):
+            for col in range(middle.x-radius, middle.x + radius):
+                wall_position = Point(col, row)
+                if wall_position == middle:
+                    self.player_vision += self.displayer_dict['player']
+                    # print('X', end='')
+                elif wall_position == self.maze.exit_positon:
+                    self.player_vision += self.displayer_dict['exit']
+                    # print('E', end='')
+                elif wall_position in self.maze.walls_positions:
+                    self.player_vision += self.displayer_dict['wall']
+                    visible_walls[wall_position] = self.maze.walls_positions[wall_position]
+                    # print('O', end='')
+                else:
+                    self.player_vision += self.displayer_dict['empty']
+                    #print(' ', end='')
+                #print(end=' ')
+            self.player_vision += self.displayer_dict['new-line']
+        
+    def display_string(self):
+        print(self.maze_string)
+
+    def display_player(self):
+        print(self.player_vision)
         
 if __name__ == '__main__':
-    '''
-    # map setup and configuration
-    map1 = Map(MAP_WIDTH, MAP_HEIGTH)
-    map1.display_map()
-
-    print()
-    # create player and place it on the map
-    p1 = Player(Point(0,0), map1)
-    map1.place_player(p1)
-
-    map1.display_map()
     
-    clear_screen()
-    loop_running = True
-    while loop_running:
-        clear_screen()
-        map1.display_map()
-        print()
-        for key in map1.players_positions:
-            print("key: ", key)
-        print()
-        print(p1.position)
-        print()
-        print("Press any key to display a key, and 0 to quit")
-        key = key_pressed()
-        if key == '0':
-            loop_running = False
-        elif key in 'wdsa':
-            p1.change_position(key)
-        print(key)
-    '''
-    
-    #VERY NICE WORKING MAP MOVEMENT
-    '''
-    # maze map
-    map2 = MazeMap(MAP_WIDTH, MAP_HEIGTH, Point(0,0), Point(14,14))
-    map2.display_map()
-    map2.generate_maze()
-    map2.display_map()
-
-    p1 = Player(Point(0,0), map2)
-    map2.place_player(p1)
-
-    clear_screen()
-    loop_running = True
-    while loop_running:
-        clear_screen()
-        map2.display_map()
-        print()
-        for key in map2.players_positions:
-            print("key: ", key)
-        print()
-        print(p1.position)
-        print()
-        print("Press any key to display a key, and 0 to quit")
-        key = key_pressed()
-        if key == '0':
-            loop_running = False
-        elif key in 'wdsa':
-            p1.change_position(key)
-        print(key)
-    '''
-
     map2 = MazeMap(MAP_WIDTH, MAP_HEIGTH, Point(0,0), Point(MAP_WIDTH-1, MAP_HEIGTH-1))
     map2.display_map()
     map2.generate_maze()
@@ -379,25 +317,4 @@ if __name__ == '__main__':
     game1 = SolveMaze(map2, p1)
     game1.start_game()
 
-    '''
-    clear_screen()
-    loop_running = True
-    while loop_running:
-        clear_screen()
-        p1.show_arounds()
-        #map2.display_map_with_its_borders()
-        print()
-        for key in map2.players_positions:
-            print("key: ", key)
-        print()
-        print(p1.position)
-        print()
-        print("Press any key to display a key, and 0 to quit")
-        key = key_pressed()
-        if key == '0':
-            loop_running = False
-        elif key in 'wdsa':
-            p1.change_position(key)
-        print(key)
-    '''
         
