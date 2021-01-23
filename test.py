@@ -3,8 +3,8 @@ from helpers import key_pressed, clear_screen
 from collections import defaultdict
 import random
 
-MAP_HEIGTH = 25
-MAP_WIDTH = 25
+MAP_HEIGTH = 10
+MAP_WIDTH = 10
 FIRST_ELEMENT = 0
 # -------------------------------------------------- HELPERS
 
@@ -53,6 +53,7 @@ class Player(MapElement):
     def __init__(self, point, map_obj):
         super().__init__(point, map_obj)
         self.moves = defaultdict()
+        self.player_vision_length = 5
         self.moves = {
             'w': Point(0, 1),
             'd': Point(1, 0),
@@ -67,7 +68,7 @@ class Player(MapElement):
 
     
     def show_arounds(self):
-        self.map.player_vision(self.position,3)
+        self.map.player_vision(self.position,self.player_vision_length)
 
         
     def __str__(self):
@@ -95,9 +96,11 @@ class Wall(MapElement):
 
 
 class Map():
-    def __init__(self, map_width, map_heigth):
+    def __init__(self, map_width, map_heigth, start_position, exit_positon):
         self.map_width = map_width
         self.map_heigth = map_heigth
+        self.start_position = start_position
+        self.exit_positon = exit_positon  
         self.players_positions = defaultdict()
         self.walls_positions = defaultdict()
         self.map_borders = defaultdict()
@@ -130,6 +133,8 @@ class Map():
                 wall_position = Point(col, row)
                 if wall_position == player_position:
                     print('X', end='')
+                elif wall_position == self.exit_positon:
+                    print('E', end='')
                 elif wall_position in self.walls_positions:
                     visible_walls[wall_position] = self.walls_positions[wall_position]
                     print('O', end='')
@@ -138,9 +143,6 @@ class Map():
                 print(end=' ')
             print()
                 
-
-
-
     def populate_borders(self):
         minus_one = -1
         for width in range(-1, self.map_width + 1):
@@ -155,14 +157,10 @@ class Map():
             self.walls_positions[right_border_wall.position] = right_border_wall
 
     
-
-
 class MazeMap(Map):
     
     def __init__(self, map_width, map_heigth, start_position, exit_positon):
-        super().__init__(map_width, map_heigth)
-        self.start_position = start_position
-        self.exit_positon = exit_positon    
+        super().__init__(map_width, map_heigth, start_position, exit_positon)  
         self.populate_walls()
         self.points_round = defaultdict()
         self.points_round = {            
@@ -171,7 +169,6 @@ class MazeMap(Map):
             'down': Point(0, -1),
             'left': Point(-1, 0)}
         
-
 
     def populate_walls(self):
         for row in range(self.map_heigth):
@@ -198,6 +195,8 @@ class MazeMap(Map):
                 checked_point = Point(col, row)
                 if checked_point in self.players_positions:
                     print(self.players_positions[checked_point], end=' ')
+                elif checked_point == self.exit_positon:
+                    print('E', end=' ')
                 elif checked_point in self.walls_positions:
                     print(self.walls_positions[checked_point], end=' ')
                 else:
@@ -256,18 +255,52 @@ class MazeMap(Map):
         print('FIXIN EXIT')
         checked_point = finish_point
         first_empty_path_found = False
+        already_been_to_points = []
         while not first_empty_path_found:
             available_points = []
             for direction in self.points_round:
                 potential_point = checked_point + self.points_round[direction]
-                if self.in_map_range(potential_point):
+                if self.in_map_range(potential_point) and potential_point not in already_been_to_points:
                         available_points += [potential_point]
             for point in available_points:
                 if point not in self.walls_positions:
                     first_empty_path_found = True
             if not first_empty_path_found:
-                self.walls_positions.pop(available_points[random.randint(0, len(available_points)-1)])
+                already_been_to_points += [checked_point]
+                deleted_point = available_points[random.randint(0, len(available_points)-1)]
+                self.walls_positions.pop(deleted_point)
+                checked_point = deleted_point
 
+
+class SolveMaze():
+
+    def __init__(self, maze, player):
+        self.maze = maze
+        self.player = player
+
+    def start_game(self):
+        player_reach_exit = False
+        #start_counting = False
+        while not player_reach_exit:
+            clear_screen()
+            if self.player.position == self.maze.start_position:
+                self.maze.display_map_with_its_borders()
+            elif self.player.position == self.maze.exit_positon:
+                break
+            else:
+                self.player.show_arounds()
+            key = key_pressed()
+            if key == '0':
+                # should be changed
+                player_reach_exit = True
+            elif key in 'wdsa':
+                p1.change_position(key)
+        self.finish_game()
+
+
+    def finish_game(self):
+        clear_screen()
+        print('WP RAT! U DID GOOD JOB :3')
         
 if __name__ == '__main__':
     '''
@@ -343,6 +376,10 @@ if __name__ == '__main__':
     p1 = Player(Point(0,0), map2)
     map2.place_player(p1)
 
+    game1 = SolveMaze(map2, p1)
+    game1.start_game()
+
+    '''
     clear_screen()
     loop_running = True
     while loop_running:
@@ -362,4 +399,5 @@ if __name__ == '__main__':
         elif key in 'wdsa':
             p1.change_position(key)
         print(key)
+    '''
         
