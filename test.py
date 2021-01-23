@@ -1,6 +1,7 @@
 import time
 from helpers import key_pressed, clear_screen
 from collections import defaultdict
+import random
 
 MAP_HEIGTH = 15
 MAP_WIDTH = 15
@@ -178,15 +179,13 @@ class MazeMap(Map):
 
 
     def generate_maze(self):
-        import random
         # start from starting_pos
         checked_point = self.start_position
         self.walls_positions.pop(self.start_position)
         self.walls_positions.pop(self.exit_positon)
         generating_maze = True
-        do_not_visit_list = []
+        dead_end_road_position = []
         points_queue = [self.start_position]
-        loop = 0
         while generating_maze:
             print(checked_point)
             # find available points around this_position (1. in the map area, 2. potential wall must have 3 wall around it)
@@ -194,11 +193,12 @@ class MazeMap(Map):
             for direction in self.points_round:
                 potential_point = checked_point + self.points_round[direction]
                 # 1. and 2.
-                if self.in_map_range(potential_point) and self.has_walls_around(potential_point) and potential_point not in do_not_visit_list:
+                if self.in_map_range(potential_point) and\
+                    self.has_walls_around(potential_point) and\
+                    potential_point not in dead_end_road_position:
                     available_points += [potential_point]   
             
             if len(available_points) > 0:
-                print("l: ",available_points[0]) 
                 checked_point = available_points[random.randint(0, len(available_points)-1)]
                 points_queue += [checked_point]
                 # delete point from walls dict
@@ -207,14 +207,37 @@ class MazeMap(Map):
             else:
                 # then next_point will be the last index of points_queue
                 if len(points_queue) > 1:
-                    do_not_visit_list += [points_queue.pop(-1)]
+                    dead_end_road_position += [points_queue.pop(-1)]
                     checked_point = points_queue[-1]
                 else:
                     # if no elements-> finish
                     generating_maze = False
             clear_screen()
             self.display_map()
-            time.sleep(0.001)
+        self.connect_to_exit(self.exit_positon)
+        self.display_map()
+
+    def connect_to_exit(self, finish_point):
+        print('FIXIN EXIT')
+        checked_point = finish_point
+        first_empty_path_found = False
+        while not first_empty_path_found:
+            available_points = []
+            for direction in self.points_round:
+                potential_point = checked_point + self.points_round[direction]
+                if self.in_map_range(potential_point):
+                        available_points += [potential_point]
+            for point in available_points:
+                if point not in self.walls_positions:
+                    first_empty_path_found = True
+            if not first_empty_path_found:
+                self.walls_positions.pop(available_points[random.randint(0, len(available_points)-1)])
+
+        
+
+                        
+
+
                         
 
 if __name__ == '__main__':
